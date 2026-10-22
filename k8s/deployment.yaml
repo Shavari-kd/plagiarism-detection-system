@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-name: plagiarism-detection
+  name: plagiarism-detection
 spec:
-replicas: 1
-selector:
-matchLabels:
-app: plagiarism-detection
-template:
-metadata:
-labels:
-app: plagiarism-detection
-spec:
-containers:
-- name: plagiarism-detection
-image: shavari2006/plagiarism-detection:latest
-ports:
-- containerPort: 80
-imagePullPolicy: Always
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plagiarism-detection
+  template:
+    metadata:
+      labels:
+        app: plagiarism-detection
+    spec:
+      containers:
+        - name: plagiarism-detection
+          image: shavari2006/plagiarism-detection:latest
+          ports:
+            - containerPort: 80
+          imagePullPolicy: Always
