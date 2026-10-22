@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plagiarism Detection System</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0b0c0f;
+    --surface: #131419;
+    --surface2: #1a1c24;
+    --border: rgba(255,255,255,0.07);
+    --border-hover: rgba(255,255,255,0.14);
+    --text: #f0efe8;
+    --muted: #7a7d8a;
+    --accent: #c8f060;
+    --accent-dim: rgba(200,240,96,0.12);
+    --accent-glow: rgba(200,240,96,0.25);
+    --warn: #f0a840;
+    --danger: #f05050;
+    --match-bg: rgba(200,240,96,0.18);
+    --match-text: #c8f060;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  header {
+    padding: 52px 0 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    animation: fadeDown 0.5s ease both;
+  }
+
+  .logo-area { flex: 1; }
+
+  .logo-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-tag::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  h1 {
+    font-family: var(--font-head);
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  h1 span { color: var(--accent); }
+
+  .algo-badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 18px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.8;
+    white-space: nowrap;
+  }
+  .algo-badge strong { color: var(--accent); font-weight: 400; display: block; font-size: 12px; margin-bottom: 2px; }
+
+  /* Input section */
+  .input-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+    animation: fadeUp 0.5s 0.1s ease both;
+  }
+
+  .input-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .input-panel:focus-within { border-color: var(--border-hover); }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .char-count {
+    font-size: 11px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  textarea {
+    width: 100%;
+    height: 180px;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: none;
+    padding: 16px;
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+    color: var(--text);
+    line-height: 1.7;
+    caret-color: var(--accent);
+  }
+  textarea::placeholder { color: var(--muted); }
+  textarea::-webkit-scrollbar { width: 4px; }
+  textarea::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 2px; }
+
+  /* Error */
+  .err { 
+    font-size: 12px; color: var(--danger); 
+    display: none; margin-bottom: 16px;
+    animation: fadeUp 0.3s ease both;
+  }
+  .err.show { display: block; }
+
+  /* Analyse button */
+  .btn-wrap {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 40px;
+    animation: fadeUp 0.5s 0.15s ease both;
+  }
+
+  .btn-analyse {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px 28px;
+    background: var(--accent);
+    color: #0b0c0f;
+    border: none;
+    border-radius: 10px;
+    font-family: var(--font-head);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    letter-spacing: 0.01em;
+  }
+  .btn-analyse:hover { opacity: 0.88; }
+  .btn-analyse:active { transform: scale(0.98); }
+  .btn-analyse .arrow { font-size: 18px; transition: transform 0.2s; }
+  .btn-analyse:hover .arrow { transform: translateX(3px); }
+
+  .btn-clear {
+    padding: 16px 22px;
+    background: var(--surface);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-clear:hover { color: var(--text); border-color: var(--border-hover); }
+
+  /* Divider */
+  .section-divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .section-divider span {
+    font-family: var(--font-head);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .section-divider::before, .section-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Results */
+  #results { display: none; }
+  #results.show { display: block; animation: fadeUp 0.4s ease both; }
+
+  /* Score hero */
+  .score-hero {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 16px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 32px;
+    align-items: center;
+  }
+
+  .score-circle {
+    position: relative;
+    width: 110px;
+    height: 110px;
+    flex-shrink: 0;
+  }
+  .score-circle svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .score-circle .track { fill: none; stroke: var(--surface2); stroke-width: 7; }
+  .score-circle .fill { fill: none; stroke-width: 7; stroke-linecap: round; transition: stroke-dashoffset 0.9s cubic-bezier(.4,0,.2,1), stroke 0.4s; }
+  .score-num {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .score-num .big {
+    font-family: var(--font-head);
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1;
+    transition: color 0.4s;
+  }
+  .score-num .pct { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  .score-info { min-width: 0; }
+  .verdict-label {
+    font-family: var(--font-head);
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    transition: color 0.4s;
+  }
+  .verdict-desc { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
+
+  .bar-wrap { margin-bottom: 6px; }
+  .bar-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.05em; }
+  .bar-track { height: 6px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 99px; transition: width 0.9s cubic-bezier(.4,0,.2,1), background 0.4s; }
+
+  /* Metrics row */
+  .metrics-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+  .metric-val {
+    font-family: var(--font-head);
+    font-size: 30px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .metric-lbl { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+
+  /* LCS card */
+  .lcs-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-family: var(--font-head);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .dot {
+    width: 5px; height: 5px;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+  .lcs-output {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+    color: var(--accent);
+    word-break: break-all;
+    line-height: 1.8;
+    min-height: 44px;
+  }
+
+  /* Highlight panels */
+  .highlight-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .highlight-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 20px 16px;
+  }
+  .highlight-text {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 2;
+    word-break: break-all;
+    color: var(--muted);
+  }
+  .match {
+    background: var(--match-bg);
+    color: var(--match-text);
+    border-radius: 2px;
+  }
+
+  /* Preprocessing note */
+  .preprocess-note {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .preprocess-note strong { color: var(--text); font-weight: 500; }
+
+  /* Animations */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    .input-grid, .highlight-grid, .metrics-row { grid-template-columns: 1fr; }
+    .score-hero { grid-template-columns: 1fr; text-align: center; }
+    .algo-badge { display: none; }
+    header { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo-area">
+      <div class="logo-tag">LCS-based engine v1.0</div>
+      <h1>Plagiarism<br><span>Detection</span> System</h1>
+    </div>
+    <div class="algo-badge">
+      <strong>Algorithm</strong>
+      Longest Common Subsequence<br>
+      O(m × n) dynamic programming<br>
+      Similarity = 2·LCS / (|T1| + |T2|)
+    </div>
+  </header>
+
+  <div class="input-grid">
+    <div class="input-panel">
+      <div class="panel-header">
+        <span class="panel-label">Text 1 — Original</span>
+        <span class="char-count" id="cc1">0 chars</span>
+      </div>
+      <textarea id="text1" placeholder="Paste or type the original text here..." spellcheck="false"></textarea>
+    </div>
+    <div class="input-panel">
+      <div class="panel-header">
+        <span class="panel-label">Text 2 — Comparison</span>
+        <span class="char-count" id="cc2">0 chars</span>
+      </div>
+      <textarea id="text2" placeholder="Paste or type the text to compare..." spellcheck="false"></textarea>
+    </div>
+  </div>
+
+  <p class="err" id="err">⚠ Please enter text in both fields before analysing.</p>
+
+  <div class="btn-wrap">
+    <button class="btn-analyse" onclick="analyse()">
+      Analyse Similarity <span class="arrow">→</span>
+    </button>
+    <button class="btn-clear" onclick="clearAll()">Clear</button>
+  </div>
+
+  <div id="results">
+    <div class="section-divider"><span>Results</span></div>
+
+    <div class="score-hero">
+      <div class="score-circle">
+        <svg viewBox="0 0 100 100">
+          <circle class="track" cx="50" cy="50" r="42"/>
+          <circle class="fill" id="circle-fill" cx="50" cy="50" r="42"
+            stroke-dasharray="263.9"
+            stroke-dashoffset="263.9"/>
+        </svg>
+        <div class="score-num">
+          <span class="big" id="circle-num">0</span>
+          <span class="pct">%</span>
+        </div>
+      </div>
+
+      <div class="score-info">
+        <div class="verdict-label" id="verdict-label">—</div>
+        <div class="verdict-desc" id="verdict-desc"></div>
+        <div class="bar-wrap">
+          <div class="bar-labels">
+            <span>Original</span>
+            <span>Moderate</span>
+            <span>High risk</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" id="bar-fill" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="metric-val" id="m-sim">—</div>
+        <div class="metric-lbl">Similarity %</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val" id="m-lcs">—</div>
+        <div class="metric-lbl">LCS Length</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val" id="m-avg">—</div>
+        <div class="metric-lbl">Avg Text Length</div>
+      </div>
+    </div>
+
+    <div class="lcs-card">
+      <div class="card-title"><span class="dot"></span>Longest Common Subsequence</div>
+      <div class="lcs-output" id="lcs-out"></div>
+    </div>
+
+    <div class="highlight-grid">
+      <div class="highlight-panel">
+        <div class="card-title"><span class="dot"></span>Text 1 — matched chars</div>
+        <div class="highlight-text" id="hl1"></div>
+      </div>
+      <div class="highlight-panel">
+        <div class="card-title"><span class="dot"></span>Text 2 — matched chars</div>
+        <div class="highlight-text" id="hl2"></div>
+      </div>
+    </div>
+
+    <div class="preprocess-note">
+      <strong>Preprocessing applied:</strong> Both texts are converted to lowercase and spaces removed before comparison — matching your <code>toLowerCase()</code> and <code>removeSpaces()</code> utility functions.
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ---------- char counters ----------
+document.getElementById('text1').addEventListener('input', function() {
+  document.getElementById('cc1').textContent = this.value.length + ' chars';
+});
+document.getElementById('text2').addEventListener('input', function() {
+  document.getElementById('cc2').textContent = this.value.length + ' chars';
+});
+
+// ---------- preprocessing (mirrors utils.cpp) ----------
+function preprocess(s) {
+  return s.toLowerCase().replace(/\s+/g, '');
+}
+
+// ---------- LCS (mirrors lcs.cpp) ----------
+function computeLCS(X, Y) {
+  const m = X.length, n = Y.length;
+  const dp = Array.from({length: m + 1}, () => new Int32Array(n + 1));
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (X[i-1] === Y[j-1]) dp[i][j] = dp[i-1][j-1] + 1;
+      else dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1]);
+    }
+  }
+  let lcs = '', i = m, j = n;
+  while (i > 0 && j > 0) {
+    if (X[i-1] === Y[j-1]) { lcs = X[i-1] + lcs; i--; j--; }
+    else if (dp[i-1][j] > dp[i][j-1]) i--;
+    else j--;
+  }
+  return { lcs, lcsLen: dp[m][n] };
+}
+
+// ---------- similarity (mirrors similarity.cpp) ----------
+function calcSimilarity(lcsLen, l1, l2) {
+  return (2.0 * lcsLen / (l1 + l2)) * 100;
+}
+
+// ---------- highlight matched chars ----------
+function getMatchedIndices(text, lcsStr) {
+  const matched = new Array(text.length).fill(false);
+  let li = 0;
+  for (let i = 0; i < text.length && li < lcsStr.length; i++) {
+    if (text[i] === lcsStr[li]) { matched[i] = true; li++; }
+  }
+  return matched;
+}
+
+function buildHighlight(text, matched) {
+  let out = '';
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i] === '<' ? '&lt;' : text[i] === '>' ? '&gt;' : text[i] === '&' ? '&amp;' : text[i];
+    out += matched[i] ? `<span class="match">${c}</span>` : c;
+  }
+  return out;
+}
+
+// ---------- colour logic ----------
+function getColor(sim) {
+  if (sim < 30) return '#c8f060';
+  if (sim < 60) return '#f0a840';
+  return '#f05050';
+}
+
+function getVerdict(sim) {
+  if (sim < 20) return {
+    label: 'Largely Original',
+    desc: 'The two texts share very little content. No significant plagiarism detected.'
+  };
+  if (sim < 40) return {
+    label: 'Some Overlap',
+    desc: 'Moderate similarity found. There may be partially shared phrasing or common words.'
+  };
+  if (sim < 65) return {
+    label: 'High Similarity',
+    desc: 'Significant overlap detected. These texts likely share substantial copied content.'
+  };
+  return {
+    label: 'Very High — Likely Plagiarised',
+    desc: 'Texts are extremely similar. Strong evidence of plagiarism or near-duplication.'
+  };
+}
+
+// ---------- main ----------
+function analyse() {
+  const raw1 = document.getElementById('text1').value;
+  const raw2 = document.getElementById('text2').value;
+  const err = document.getElementById('err');
+
+  if (!raw1.trim() || !raw2.trim()) {
+    err.classList.add('show');
+    return;
+  }
+  err.classList.remove('show');
+
+  const t1 = preprocess(raw1);
+  const t2 = preprocess(raw2);
+
+  const { lcs, lcsLen } = computeLCS(t1, t2);
+  const sim = calcSimilarity(lcsLen, t1.length, t2.length);
+  const simRounded = +sim.toFixed(1);
+  const avg = Math.round((t1.length + t2.length) / 2);
+
+  // update metrics
+  document.getElementById('m-sim').textContent = simRounded + '%';
+  document.getElementById('m-lcs').textContent = lcsLen;
+  document.getElementById('m-avg').textContent = avg;
+
+  // update gauge circle
+  const circumference = 263.9;
+  const offset = circumference - (simRounded / 100) * circumference;
+  const color = getColor(simRounded);
+  const circleFill = document.getElementById('circle-fill');
+  circleFill.style.strokeDashoffset = offset;
+  circleFill.style.stroke = color;
+  document.getElementById('circle-num').textContent = simRounded;
+  document.getElementById('circle-num').style.color = color;
+
+  // update bar
+  const bar = document.getElementById('bar-fill');
+  bar.style.width = simRounded + '%';
+  bar.style.background = color;
+
+  // verdict
+  const v = getVerdict(simRounded);
+  document.getElementById('verdict-label').textContent = v.label;
+  document.getElementById('verdict-label').style.color = color;
+  document.getElementById('verdict-desc').textContent = v.desc;
+
+  // LCS display
+  document.getElementById('lcs-out').textContent = lcs || '(no common subsequence)';
+
+  // highlights
+  const m1 = getMatchedIndices(t1, lcs);
+  const m2 = getMatchedIndices(t2, lcs);
+  document.getElementById('hl1').innerHTML = buildHighlight(t1, m1);
+  document.getElementById('hl2').innerHTML = buildHighlight(t2, m2);
+
+  // show results
+  const results = document.getElementById('results');
+  results.classList.add('show');
+  setTimeout(() => results.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+}
+
+function clearAll() {
+  document.getElementById('text1').value = '';
+  document.getElementById('text2').value = '';
+  document.getElementById('cc1').textContent = '0 chars';
+  document.getElementById('cc2').textContent = '0 chars';
+  document.getElementById('results').classList.remove('show');
+  document.getElementById('err').classList.remove('show');
+}
+</script>
+</body>
+</html>
